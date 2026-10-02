@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Thumper 1.0</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐇</text></svg>">
+<style>
+    :root {
+        --cell: 36px;
+        --grid-bg: #f7f5ef;
+        --grid-line: #d8d2c2;
+        --thumper-glow: rgba(192, 57, 43, 0.55);
+    }
+    * { box-sizing: border-box; }
+    body {
+        margin: 0;
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+        background: #2b2b2b;
+        color: #eee;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 20px;
+        min-height: 100vh;
+    }
+    h1 { margin: 0 0 4px; font-size: 22px; letter-spacing: 0.5px; }
+    .sub { color: #aaa; font-size: 13px; margin-bottom: 6px; text-align: center; }
+    .problem-link {
+        display: inline-block;
+        color: #7fc8f8;
+        text-decoration: none;
+        font-size: 13px;
+        margin-bottom: 16px;
+        padding: 4px 10px;
+        border: 1px solid #3d5a70;
+        border-radius: 6px;
+        background: #22303a;
+        transition: background 0.15s, border-color 0.15s;
+    }
+    .problem-link:hover { background: #2d404e; border-color: #5a87a8; color: #a7dcff; }
+
+    #overflowBanner {
+        display: none;
+        position: fixed;
+        top: 16px;
+        right: 16px;
+        background: #f1c40f;
+        color: #3a2f00;
+        border: 1px solid #d4ac0d;
+        border-radius: 10px;
+        padding: 12px 18px;
+        font-size: 14px;
+        font-weight: 600;
+        max-width: 320px;
+        text-align: left;
+        box-shadow: 0 8px 28px rgba(0,0,0,0.45);
+        z-index: 300;
+        transition: opacity 0.4s, transform 0.4s;
+        transform: translateX(0);
+    }
+    #overflowBanner.show { display: block; }
+    #overflowBanner.fade { opacity: 0; transform: translateX(30px); }
+
+    .controls {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+    .row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: center;
+    }
+    button {
+        background: #3d3d3d;
+        color: #eee;
+        border: 1px solid #555;
+        border-radius: 8px;
+        padding: 9px 16px;
+        font-size: 14px;
+        cursor: pointer;
+        transition: background 0.15s, border-color 0.15s, transform 0.05s;
+        user-select: none;
+    }
+    button:hover { background: #4a4a4a; }
+    button:active { transform: translateY(1px); }
+    button.active { background: #4a7c59; border-color: #6fbf8b; color: #fff; }
+    button.danger.active { background: #c0392b; border-color: #e74c3c; }
+    button:disabled { opacity: 0.35; cursor: not-allowed; }
+    button:disabled:hover { background: #3d3d3d; }
+
+    .size-controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: #bbb;
+        margin-bottom: 6px;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    .size-controls input {
+        width: 56px;
+        background: #3d3d3d;
+        border: 1px solid #555;
+        color: #eee;
+        border-radius: 6px;
+        padding: 4px 6px;
+        font-size: 13px;
+    }
+
+    .speed-wrap { position: relative; }
+    .speed-popover {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        margin-top: 6px;
+        background: #3d3d3d;
+        border: 1px solid #666;
+        border-radius: 10px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.55);
+        z-index: 120;
+        padding: 12px 14px;
+        min-width: 230px;
+        color: #eee;
+        font-size: 13px;
+    }
+    .speed-popover.show { display: block; }
+    .speed-popover .label { display: flex; justify-content: space-between; margin-bottom: 8px; color: #ccc; }
+    .speed-popover .label b { color: #fff; }
+    .speed-popover input[type=range] { width: 100%; accent-color: #4a7c59; }
+    .speed-popover .hint { margin-top: 6px; font-size: 11px; color: #999; text-align: center; }
+
+    .status {
+        font-size: 13px;
+        color: #ccc;
+        margin: 8px 0 12px;
+        min-height: 18px;
+        text-align: center;
+        max-width: 92vw;
+    }
+    .status b { color: #fff; }
+
+    .grid-wrap {
+        background: var(--grid-bg);
+        border: 2px solid #8a8272;
+        border-radius: 6px;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+        overflow: visible;
+        position: relative;
+    }
+    .grid { display: grid; position: relative; }
+    .cell {
+        width: var(--cell);
+        height: var(--cell);
+        border-right: 1px solid var(--grid-line);
+        border-bottom: 1px solid var(--grid-line);
+        position: relative;
+        cursor: crosshair;
+    }
+    .cell:hover { background: rgba(0,0,0,0.04); }
+
+    .rabbit {
+        position: absolute;
+        width: var(--cell);
+        height: var(--cell);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: calc(var(--cell) * 0.72);
+        line-height: 1;
+        pointer-events: none;
+        z-index: 5;
+        user-select: none;
+    }
+    .rabbit .emoji { filter: drop-shadow(0 1px 1px rgba(0,0,0,0.35)); }
+    .rabbit .num {
+        position: absolute;
+        right: 1px;
+        bottom: 0px;
+        font-size: calc(var(--cell) * 0.28);
+        font-weight: 700;
+        color: #2b2b2b;
+        background: rgba(255,255,255,0.85);
+        border-radius: 4px;
+        padding: 0 3px;
+        line-height: 1.15;
+        font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        box-shadow: 0 0 0 1px rgba(0,0,0,0.15);
+    }
+    .rabbit.thumping::before {
+        content: "";
+        position: absolute;
+        inset: 6%;
+        border-radius: 50%;
+        background: var(--thumper-glow);
+        animation: pulse 0.9s ease-out infinite;
+        z-index: -1;
+    }
+    @keyframes pulse {
+        0%   { box-shadow: 0 0 0 0 var(--thumper-glow); opacity: 0.9; }
+        70%  { box-shadow: 0 0 0 14px rgba(192,57,43,0); opacity: 0.5; }
+        100% { box-shadow: 0 0 0 0 rgba(192,57,43,0); opacity: 0.9; }
+    }
+
+    .legend {
+        margin-top: 14px;
+        font-size: 12px;
+        color: #aaa;
+        display: flex;
+        gap: 18px;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    .legend span { display: flex; align-items: center; gap: 6px; }
+
+    .modal-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.55);
+        z-index: 200;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+    .modal-backdrop.show { display: flex; }
+    .modal {
+        background: #2f2f2f;
+        border: 1px solid #555;
+        border-radius: 12px;
+        box-shadow: 0 12px 40px rgba(0,0,0,0.7);
+        width: min(560px, 94vw);
+        padding: 18px;
+        color: #eee;
+    }
+    .modal h2 { margin: 0 0 4px; font-size: 17px; }
+    .modal .hint { font-size: 12px; color: #aaa; margin-bottom: 12px; line-height: 1.4; }
+    .modal textarea {
+        width: 100%; height: 170px; resize: vertical;
+        background: #232323; color: #eee;
+        border: 1px solid #555; border-radius: 8px;
+        padding: 10px;
+        font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        font-size: 13px; line-height: 1.4;
+    }
+    .modal .menu-title { margin-top: 14px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.6px; color: #999; }
+    .modal .defaults { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    .modal .defaults button { padding: 7px 12px; font-size: 13px; }
+    .modal .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+    .modal .error { color: #e74c3c; font-size: 12px; margin-top: 8px; min-height: 14px; }
+</style>
+</head>
+<body>
+
+<h1>🐇 Thumper</h1>
+<div class="sub">Click a cell to place a rabbit · Click a rabbit to remove it · Click a rabbit to thump</div>
+<a class="problem-link" href="https://oj.uz/problem/view/NOI25_thumper" target="_blank" rel="noopener noreferrer">
+    🔗 oj.uz / NOI25_thumper
+</a>
+
+<div id="overflowBanner">
+    ⚠️ Warning: Rabbit Overflow detected. You might need to resize the grid.
+</div>
+
+<div class="controls">
+    <div class="row size-controls">
+        <label>Grid size:</label>
+        <input type="number" id="gridSize" value="15" min="3" max="60" step="1">
+        <button id="applySize">Apply</button>
+        <button id="btnImport">📥 Import Sample</button>
+        <button id="btnExport">📤 Export as Sample</button>
+    </div>
+
+    <div class="row">
+        <button id="btnPlace" class="active">➕ Place Rabbit</button>
+        <button id="btnRemove">➖ Remove Rabbit</button>
+        <button id="btnThump">💥 Rabbit Thumping</button>
+        <button id="btnReset" class="danger">♻ Reset</button>
+    </div>
+
+    <div class="row">
+        <button id="btnStart" title="Go to start (&lt;)">⏮ Start</button>
+        <button id="btnBack" title="Go back 1 step (←)">⏪ Back 1 step</button>
+        <div class="speed-wrap">
+                    <button id="btnPlay" title="Start / Pause / Stop (Space) — double-click for speed">▶ Start</button>
+                    <div class="speed-popover" id="speedPopover">
+                        <div class="label">
+                          <span>Speed</span>
+                          <b id="speedValue">0.60s / step</b>
+                        </div>
+                        <input type="range" id="speedSlider" min="50" max="2000" step="50" value="600">
+                        <div class="hint">left = faster · right = slower</div>
+                    </div>
+        </div>
+        <button id="btnForward" title="Go forward 1 step (→)">⏩ Forward 1 step</button>
+    </div>
+</div>
+
+<div class="status" id="status"></div>
+
+<div class="grid-wrap">
+    <div class="grid" id="grid"></div>
+</div>
+
+<div class="legend">
+    <span>🐇 Rabbit</span>
+    <span>🔴 Thumping rabbit</span>
+    <span>Rabbits that leave the grid are removed</span>
+</div>
+
+<div class="modal-backdrop" id="importBackdrop">
+    <div class="modal">
+        <h2>📥 Import Sample</h2>
+        <div class="hint">
+                    Paste the input in the exact problem format:
+                    <br><code>n m</code>, then <code>n</code> lines of <code>r c</code>, then <code>m</code> thumper IDs.
+        </div>
+        <textarea id="importText" placeholder="Example:
+3 2
+1 10
+1 20
+1 30
+1 3"></textarea>
+        <div class="error" id="importError"></div>
+
+        <div class="menu-title">Defaults</div>
+        <div class="defaults">
+                    <button data-sample="s1">Sample 1</button>
+                    <button data-sample="s2">Sample 2</button>
+                    <button data-sample="s3">Sample 3</button>
+        </div>
+
+        <div class="actions">
+                    <button id="importCancel">Cancel</button>
+                    <button id="importConfirm" class="active">Load</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-backdrop" id="exportBackdrop">
+    <div class="modal">
+        <h2>📤 Export as Sample</h2>
+        <div class="hint">
+                    Full history from the last reset / import. Select all and copy to use as input.
+        </div>
+        <textarea id="exportText" readonly></textarea>
+        <div class="actions">
+                    <button id="exportClose" class="active">Close</button>
+        </div>
+    </div>
+</div>
+
+<script>
+(() => {
+    let N = 15;
+    let rabbits = [];
+    let nextId = 1;
+    let mode = "place";
+    let thumpTarget = null;
+    let animating = false;
+    let speed = 600;
+
+    let timeline = [];
+    let cursor = 0;
+    let pending = [];
+    let sampleSeq = null;
+    let sampleIdx = 0;
+    let thumpHistory = [];
+
+    let playing = false;
+    let cancelToken = 0;
+
+    const SAMPLES = {
+        s1: { rabbits: [[1,1],[2,2]], thumps: [1] },
+        s2: { rabbits: [[7,7],[3,7],[4,4],[4,10],[5,6],[6,4],[6,8],[8,7],[8,10],[9,3],[9,5],[9,9],[10,6]], thumps: [1] },
+        s3: { rabbits: [[1,10],[1,20],[1,30]], thumps: [1,3] }
+    };
+
+    const gridEl   = document.getElementById("grid");
+    const statusEl = document.getElementById("status");
+    const bannerEl = document.getElementById("overflowBanner");
+    const btnPlace = document.getElementById("btnPlace");
+    const btnRemove= document.getElementById("btnRemove");
+    const btnThump = document.getElementById("btnThump");
+    const btnReset = document.getElementById("btnReset");
+    const btnExport= document.getElementById("btnExport");
+    const btnImport= document.getElementById("btnImport");
+    const btnStart = document.getElementById("btnStart");
+    const btnBack  = document.getElementById("btnBack");
+    const btnPlay  = document.getElementById("btnPlay");
+    const btnForward = document.getElementById("btnForward");
+    const speedPopover = document.getElementById("speedPopover");
+    const speedSlider  = document.getElementById("speedSlider");
+    const speedValue   = document.getElementById("speedValue");
+    const gridSizeInput = document.getElementById("gridSize");
+    const applySizeBtn  = document.getElementById("applySize");
+
+    const importBackdrop = document.getElementById("importBackdrop");
+    const importText     = document.getElementById("importText");
+    const importError    = document.getElementById("importError");
+    const importCancel   = document.getElementById("importCancel");
+    const importConfirm  = document.getElementById("importConfirm");
+
+    const exportBackdrop = document.getElementById("exportBackdrop");
+    const exportText     = document.getElementById("exportText");
+    const exportClose    = document.getElementById("exportClose");
+
+    const CELL = () => parseFloat(getComputedStyle(document.documentElement)
+                                       .getPropertyValue("--cell"));
+
+    function rabbitAt(r, c) {
+        return rabbits.find(x => Math.round(x.r) === r && Math.round(x.c) === c) || null;
+    }
+    function rabbitById(id) { return rabbits.find(x => x.id === id) || null; }
+    function inGrid(r, c) { return r >= 1 && r <= N && c >= 1 && c <= N; }
+
+    function moveAway(a, b) {
+        const dr = Math.abs(a.r - b.r);
+        const dc = Math.abs(a.c - b.c);
+        const sr = Math.sign(b.r - a.r);
+        const sc = Math.sign(b.c - a.c);
+        if (dr < dc)       b.c += 2 * sc;
+        else if (dr === dc){ b.r += sr; b.c += sc; }
+        else               b.r += 2 * sr;
+    }
+
+    function cloneRabbits(list) {
+        return list.map(r => ({ id: r.id, r: r.r, c: r.c }));
+    }
+
+    let bannerTimer = null;
+    function showBanner() {
+        bannerEl.classList.remove("fade");
+        bannerEl.classList.add("show");
+        clearTimeout(bannerTimer);
+        bannerTimer = setTimeout(() => {
+                    bannerEl.classList.add("fade");
+                    setTimeout(() => bannerEl.classList.remove("show", "fade"), 400);
+        }, 5000);
+    }
+
+    function buildGrid() {
+        gridEl.innerHTML = "";
+        gridEl.style.gridTemplateColumns = `repeat(${N}, var(--cell))`;
+        gridEl.style.gridTemplateRows    = `repeat(${N}, var(--cell))`;
+        gridEl.style.position = "relative";
+        gridEl.style.width  = `calc(${N} * var(--cell))`;
+        gridEl.style.height = `calc(${N} * var(--cell))`;
+        for (let r = 1; r <= N; r++) {
+                    for (let c = 1; c <= N; c++) {
+                        const cell = document.createElement("div");
+                        cell.className = "cell";
+                        cell.addEventListener("click", () => onCellClick(r, c));
+                        gridEl.appendChild(cell);
+                    }
+        }
+        renderRabbits();
+    }
+
+    function renderRabbits() {
+        gridEl.querySelectorAll(".rabbit").forEach(el => el.remove());
+        const size = CELL();
+        for (const rab of rabbits) {
+                    const el = document.createElement("div");
+                    el.className = "rabbit";
+                    if (thumpTarget === rab.id) el.classList.add("thumping");
+                    el.style.left = ((rab.c - 1) * size) + "px";
+                    el.style.top  = ((rab.r - 1) * size) + "px";
+
+                    const span = document.createElement("span");
+                    span.className = "emoji";
+                    span.textContent = "🐇";
+                    el.appendChild(span);
+
+                    const num = document.createElement("span");
+                    num.className = "num";
+                    num.textContent = rab.id;
+                    el.appendChild(num);
+
+                    gridEl.appendChild(el);
+        }
+    }
+
+    function updateStatus() {
+        const n = rabbits.length;
+        const s = n === 1 ? "" : "s";
+        const modeText =
+                    mode === "place"  ? `Mode: <b>Place Rabbit</b> — click an empty cell.` :
+                    mode === "remove" ? `Mode: <b>Remove Rabbit</b> — click a rabbit to delete it.` :
+                                          `Mode: <b>Rabbit Thumping</b> — click a rabbit to make it thump.`;
+        let extra = ` (${n} rabbit${s})`;
+        if (sampleSeq) {
+                    extra += ` · sample step ${cursor}/${sampleSeq.length}`;
+        } else if (timeline.length > 1) {
+                    extra += ` · step ${cursor}/${timeline.length - 1}`;
+        }
+        statusEl.innerHTML = modeText + extra;
+        updatePlaybackButtons();
+    }
+
+    function hasAnythingAhead() {
+        const sampleRemaining = sampleSeq && sampleIdx < sampleSeq.length;
+        return pending.length > 0 || sampleRemaining;
+    }
+
+    function updatePlaybackButtons() {
+        btnBack.disabled  = playing || cursor <= 0;
+        btnStart.disabled = playing || cursor <= 0;
+        btnForward.disabled = playing || !hasAnythingAhead();
+
+        if (playing)             btnPlay.textContent = "⏸ Pause";
+        else if (animating)      btnPlay.textContent = "⏹ Stop";
+        else                     btnPlay.textContent = "▶ Start";
+        btnPlay.disabled = false;
+    }
+
+    function setMode(m) {
+        mode = m;
+        btnPlace.classList.toggle("active", m === "place");
+        btnRemove.classList.toggle("active", m === "remove");
+        btnThump.classList.toggle("active", m === "thump");
+        if (m !== "thump") thumpTarget = null;
+        renderRabbits();
+        updateStatus();
+    }
+
+    function resetHistory(keepSample = false) {
+        timeline = [{ rabbits: cloneRabbits(rabbits), thumpHistory: [] }];
+        cursor = 0;
+        pending = [];
+        thumpHistory = [];
+        playing = false;
+        if (!keepSample) {
+                    sampleSeq = null;
+                    sampleIdx = 0;
+        }
+    }
+
+    function pushTimeline() {
+        timeline = timeline.slice(0, cursor + 1);
+        timeline.push({
+                    rabbits: cloneRabbits(rabbits),
+                    thumpHistory: thumpHistory.slice()
+        });
+        cursor = timeline.length - 1;
+    }
+
+    function restoreTimeline(k) {
+        const snap = timeline[k];
+        rabbits = cloneRabbits(snap.rabbits);
+        thumpHistory = snap.thumpHistory.slice();
+        cursor = k;
+        renderRabbits();
+        updateStatus();
+    }
+
+    function onCellClick(r, c) {
+        if (animating || playing) return;
+        const existing = rabbitAt(r, c);
+
+        if (mode === "place") {
+                    if (existing) return;
+                    rabbits.push({ id: nextId++, r, c });
+                    resetHistory(false);
+                    renderRabbits();
+                    updateStatus();
+        }
+        else if (mode === "remove") {
+                    if (!existing) return;
+                    rabbits = rabbits.filter(x => x.id !== existing.id);
+                    resetHistory(false);
+                    renderRabbits();
+                    updateStatus();
+        }
+        else if (mode === "thump") {
+                    if (!existing) return;
+                    performThump(existing.id, { record: true, updateTimeline: true });
+        }
+    }
+
+    function cancelCurrentAnimation() {
+        if (!animating) return;
+        cancelToken++;
+        animating = false;
+        playing = false;
+        thumpTarget = null;
+        restoreTimeline(cursor);
+    }
+
+    function performThump(thumperId, opts = {}) {
+        const thumper = rabbitById(thumperId);
+        if (!thumper) { if (opts.onDone) opts.onDone(); return; }
+
+        const {
+                    record = true,
+                    updateTimeline = true,
+                    duration = speed,
+                    onDone = null
+        } = opts;
+
+        animating = true;
+        thumpTarget = thumperId;
+        const myToken = cancelToken;
+        renderRabbits();
+        updatePlaybackButtons();
+
+        if (record) thumpHistory.push(thumperId);
+
+        const snapshot = rabbits.map(x => ({ ...x }));
+        const destinations = new Map();
+        for (const b of snapshot) {
+                    if (b.id === thumperId) continue;
+                    const moved = { ...b };
+                    moveAway(thumper, moved);
+                    destinations.set(b.id, { r: moved.r, c: moved.c });
+        }
+
+        const start = performance.now();
+        const starts = new Map(snapshot.map(b => [b.id, { r: b.r, c: b.c }]));
+        let overflowed = false;
+
+        function frame(now) {
+                    if (myToken !== cancelToken) return;
+
+                    const t = Math.min(1, (now - start) / duration);
+                    for (const rab of rabbits) {
+                        if (rab.id === thumperId) continue;
+                        const from = starts.get(rab.id);
+                        const to   = destinations.get(rab.id);
+                        rab.r = from.r + (to.r - from.r) * t;
+                        rab.c = from.c + (to.c - from.c) * t;
+                    }
+                    renderRabbits();
+
+                    if (t < 1) {
+                        requestAnimationFrame(frame);
+                        return;
+                    }
+
+                    for (const rab of rabbits) {
+                        if (rab.id === thumperId) continue;
+                        const to = destinations.get(rab.id);
+                        rab.r = to.r; rab.c = to.c;
+                    }
+                    const before = rabbits.length;
+                    rabbits = rabbits.filter(rab => inGrid(rab.r, rab.c));
+                    const removed = before - rabbits.length;
+                    if (removed > 0) overflowed = true;
+
+                    thumpTarget = null;
+                    animating = false;
+
+                    if (updateTimeline) pushTimeline();
+                    renderRabbits();
+                    updateStatus();
+
+                    if (overflowed) showBanner();
+                    if (onDone) onDone();
+        }
+        requestAnimationFrame(frame);
+    }
+
+    function goToStart() {
+        if (playing || cursor <= 0) return;
+        if (animating) cancelCurrentAnimation();
+        const executed = thumpHistory.slice();
+        restoreTimeline(0);
+        pending = executed.slice();
+        if (sampleSeq) sampleIdx = 0;
+        updateStatus();
+    }
+
+    function goBack() {
+        if (playing || cursor <= 0) return;
+        if (animating) cancelCurrentAnimation();
+        if (sampleSeq && sampleIdx > 0) sampleIdx--;
+        const undone = thumpHistory[thumpHistory.length - 1];
+        if (undone !== undefined) pending.unshift(undone);
+        restoreTimeline(cursor - 1);
+    }
+
+    function goForward() {
+        if (playing) return;
+        if (animating) cancelCurrentAnimation();
+        if (pending.length > 0) {
+                    const id = pending[0];
+                    if (!rabbitById(id)) {
+                        pending.shift();
+                        if (sampleSeq) sampleIdx++;
+                        pushTimeline();
+                        updateStatus();
+                        return;
+                    }
+                    performThump(id, {
+                        record: true,
+                        updateTimeline: true,
+                        onDone: () => { pending.shift(); if (sampleSeq) sampleIdx++; }
+                    });
+                    return;
+        }
+        if (sampleSeq && sampleIdx < sampleSeq.length) {
+                    const id = sampleSeq[sampleIdx];
+                    if (!rabbitById(id)) {
+                        sampleIdx++;
+                        updateStatus();
+                        goForward();
+                        return;
+                    }
+                    performThump(id, {
+                        record: true,
+                        updateTimeline: true,
+                        onDone: () => { sampleIdx++; }
+                    });
+        }
+    }
+
+    function playLoop() {
+        if (!playing) return;
+        if (animating) { requestAnimationFrame(playLoop); return; }
+
+        if (!hasAnythingAhead()) {
+                    playing = false;
+                    updatePlaybackButtons();
+                    return;
+        }
+
+        if (pending.length > 0) {
+                    const id = pending[0];
+                    if (!rabbitById(id)) {
+                        pending.shift();
+                        requestAnimationFrame(playLoop);
+                        return;
+                    }
+                    performThump(id, {
+                        record: true,
+                        updateTimeline: true,
+                        onDone: () => { pending.shift(); if (sampleSeq) sampleIdx++; requestAnimationFrame(playLoop); }
+                    });
+        } else {
+                    const id = sampleSeq[sampleIdx];
+                    if (!rabbitById(id)) {
+                        sampleIdx++;
+                        requestAnimationFrame(playLoop);
+                        return;
+                    }
+                    performThump(id, {
+                        record: true,
+                        updateTimeline: true,
+                        onDone: () => { sampleIdx++; requestAnimationFrame(playLoop); }
+                    });
+        }
+    }
+
+    function onPlayClick() {
+        if (animating) { cancelCurrentAnimation(); return; }
+        if (playing) { playing = false; updatePlaybackButtons(); return; }
+        if (!hasAnythingAhead()) return;
+        playing = true;
+        updatePlaybackButtons();
+        playLoop();
+    }
+
+    function loadSample(sample) {
+        const maxCoord = Math.max(...sample.rabbits.flat());
+        N = Math.max(N, maxCoord + 2);
+        gridSizeInput.value = N;
+
+        rabbits = sample.rabbits.map(([r, c], i) => ({ id: i + 1, r, c }));
+        nextId = sample.rabbits.length + 1;
+        thumpTarget = null;
+        playing = false;
+
+        sampleSeq = sample.thumps.slice();
+        sampleIdx = 0;
+
+        buildGrid();
+        resetHistory(true);
+        updateStatus();
+    }
+
+    function parseImport(text) {
+        const tokens = text.trim().split(/\s+/).map(Number);
+        if (tokens.some(isNaN)) throw new Error("All values must be integers.");
+        let p = 0;
+        const n = tokens[p++], m = tokens[p++];
+        if (n === undefined || m === undefined) throw new Error("First line must contain n and m.");
+        if (n <= 0 || m < 0) throw new Error("Invalid n or m.");
+        if (tokens.length < 2 + 2 * n + m) throw new Error(`Expected ${2 + 2*n + m} numbers, got ${tokens.length}.`);
+        const rabbitPairs = [];
+        for (let i = 0; i < n; i++) rabbitPairs.push([tokens[p++], tokens[p++]]);
+        const thumps = [];
+        for (let i = 0; i < m; i++) thumps.push(tokens[p++]);
+        return { rabbits: rabbitPairs, thumps };
+    }
+
+    function openImportModal() {
+        importError.textContent = "";
+        importBackdrop.classList.add("show");
+        importText.focus();
+    }
+    function closeImportModal() { importBackdrop.classList.remove("show"); }
+    function doImport() {
+        importError.textContent = "";
+        let parsed;
+        try { parsed = parseImport(importText.value); }
+        catch (err) { importError.textContent = err.message; return; }
+        loadSample(parsed);
+        closeImportModal();
+    }
+
+    function buildExportText() {
+        const baseRabbits = timeline.length ? timeline[0].rabbits : rabbits;
+        const n = baseRabbits.length;
+        const m = thumpHistory.length;
+        let out = `${n} ${m}\n`;
+        for (const rab of baseRabbits) {
+                    out += `${Math.round(rab.r)} ${Math.round(rab.c)}\n`;
+        }
+        out += m > 0 ? thumpHistory.join(" ") + "\n" : "\n";
+        return out;
+    }
+
+    function openExportModal() {
+        exportText.value = buildExportText();
+        exportBackdrop.classList.add("show");
+        setTimeout(() => {
+                    exportText.focus();
+                    exportText.select();
+        }, 0);
+    }
+    function closeExportModal() { exportBackdrop.classList.remove("show"); }
+
+    btnPlace.addEventListener("click", () => setMode("place"));
+    btnRemove.addEventListener("click", () => setMode("remove"));
+    btnThump.addEventListener("click", () => setMode("thump"));
+
+    btnReset.addEventListener("click", () => {
+        if (playing) return;
+        if (animating) cancelCurrentAnimation();
+        rabbits = [];
+        nextId = 1;
+        thumpTarget = null;
+        resetHistory(false);
+        setMode("place");
+        renderRabbits();
+        updateStatus();
+    });
+
+    applySizeBtn.addEventListener("click", () => {
+        if (playing) return;
+        if (animating) cancelCurrentAnimation();
+        let v = parseInt(gridSizeInput.value, 10);
+        if (isNaN(v)) v = 15;
+        v = Math.max(3, Math.min(60, v));
+        gridSizeInput.value = v;
+        N = v;
+        rabbits = rabbits.filter(x => inGrid(x.r, x.c));
+        thumpTarget = null;
+        resetHistory(false);
+        buildGrid();
+        updateStatus();
+    });
+
+    btnImport.addEventListener("click", () => {
+        if (playing) return;
+        openImportModal();
+    });
+    importCancel.addEventListener("click", closeImportModal);
+    importConfirm.addEventListener("click", doImport);
+    importBackdrop.addEventListener("click", (e) => {
+        if (e.target === importBackdrop) closeImportModal();
+    });
+    importText.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") closeImportModal();
+        if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) doImport();
+    });
+    importBackdrop.querySelectorAll("[data-sample]").forEach(btn => {
+        btn.addEventListener("click", () => {
+                    const s = SAMPLES[btn.dataset.sample];
+                    let text = `${s.rabbits.length} ${s.thumps.length}\n`;
+                    for (const [r, c] of s.rabbits) text += `${r} ${c}\n`;
+                    text += s.thumps.join(" ") + "\n";
+                    importText.value = text;
+                    importError.textContent = "";
+        });
+    });
+
+    btnExport.addEventListener("click", openExportModal);
+    exportClose.addEventListener("click", closeExportModal);
+    exportBackdrop.addEventListener("click", (e) => {
+        if (e.target === exportBackdrop) closeExportModal();
+    });
+    exportText.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") closeExportModal();
+    });
+
+    btnStart.addEventListener("click", goToStart);
+    btnBack.addEventListener("click", goBack);
+    btnForward.addEventListener("click", goForward);
+    btnPlay.addEventListener("click", onPlayClick);
+
+    btnPlay.addEventListener("dblclick", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        speedPopover.classList.toggle("show");
+        speedSlider.value = speed;
+    });
+    document.addEventListener("click", (e) => {
+        if (!speedPopover.contains(e.target) && e.target !== btnPlay) {
+                    speedPopover.classList.remove("show");
+        }
+        if (e.target === importBackdrop) closeImportModal();
+        if (e.target === exportBackdrop) closeExportModal();
+    });
+    speedPopover.addEventListener("click", (e) => e.stopPropagation());
+
+    speedSlider.addEventListener("input", () => {
+        speed = parseInt(speedSlider.value, 10);
+        speedValue.textContent = (speed / 1000).toFixed(2) + "s / step";
+    });
+
+    document.addEventListener("keydown", (e) => {
+        if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+        if (e.key === "ArrowLeft")  { goBack(); e.preventDefault(); }
+        if (e.key === "ArrowRight") { goForward(); e.preventDefault(); }
+        if (e.key === "<" || e.code === "Comma") { goToStart(); e.preventDefault(); }
+        if (e.key === " ")          { onPlayClick(); e.preventDefault(); }
+    });
+
+    buildGrid();
+    updateStatus();
+})();
+</script>
+</body>
+</html>

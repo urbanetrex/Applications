@@ -54,6 +54,8 @@ def generate_sudoku(size):
         BOX_ROW_SIZE = 3
         BOX_COL_SIZE = 3
         copied_sudoku = sudoku_9x9.copy()
+    else:
+        return []
     
     # Generate the puzzle (Not repeating the code for each size)
     for i in range(random.randint(0, 1000)):
@@ -79,15 +81,14 @@ def generate_sudoku(size):
                 copied_sudoku[box_row1:box_row1 + BOX_ROW_SIZE],
             )
         elif instruction == 3:
-            # Swap box columns
             box_col1, box_col2 = random.sample(range(BX_COLS), 2)
             box_col1 *= BOX_COL_SIZE
             box_col2 *= BOX_COL_SIZE
             for row in copied_sudoku:
-                row[box_col1:box_col1 + BOX_COL_SIZE], row[box_col2:box_col2 + BOX_COL_SIZE] = (
-                    row[box_col2:box_col2 + BOX_COL_SIZE],
-                    row[box_col1:box_col1 + BOX_COL_SIZE],
-                )
+                temp = row[box_col1:box_col1 + BOX_COL_SIZE]
+                row[box_col1:box_col1 + BOX_COL_SIZE] = row[box_col2:box_col2 + BOX_COL_SIZE]
+                row[box_col2:box_col2 + BOX_COL_SIZE] = temp
+
     return copied_sudoku
 
 def print_sudoku(sudoku):
@@ -124,6 +125,8 @@ def print_sudoku_with_box_outlines(sudoku, size):
         BX_COLS = 3
         BOX_ROW_SIZE = 3
         BOX_COL_SIZE = 3
+    else:
+        return
 
     for i, row in enumerate(sudoku):
         if i % BOX_ROW_SIZE == 0 and i != 0:
@@ -423,4 +426,4 @@ root.title("King Sudoku -- Starting...")
 
 root.geometry("400x300")
 
-root.mainloop()
+#root.mainloop()
